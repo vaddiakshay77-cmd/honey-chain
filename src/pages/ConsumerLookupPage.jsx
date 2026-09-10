@@ -1,78 +1,90 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
+import QRCode from 'qrcode';
 import { useHoneyChain } from '../context/HoneyChainContext';
 import { verifyChain } from '../utils/hashChain';
-import { QRCodeSvg } from '../components/QRCodeSvg';
 
 export function ConsumerLookupPage() {
   const { batches, beekeepers, lookupParam, setLookupParam } = useHoneyChain();
-  
-  // Default to first batch or URL param
-  const [searchInput, setSearchInput] = useState(lookupParam || (batches[0]?.batchId || batches[0]?.batchNumber || 'HC-8921-NZ'));
-  const [activeBatch, setActiveBatch] = useState(null);
-  const [copyStatus, setCopyStatus] = useState(false);
-  
+
+  // Active batch selection
+  const [searchInput, setSearchInput] = useState(
+    lookupParam || (batches[0]?.batchId || batches[0]?.batchNumber || 'HC-8921-NZ')
+  );
+  const [selectedBatchId, setSelectedBatchId] = useState(
+    lookupParam || (batches[0]?.batchId || batches[0]?.batchNumber || '')
+  );
+
+  // QR Code data URL for current batch
+  const [batchQrUrl, setBatchQrUrl] = useState('');
+
   // Camera QR Scanner state
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerError, setScannerError] = useState('');
   const scannerRef = useRef(null);
 
-  // Tamper simulation toggle for live judge demonstration
+  // Tamper simulation toggle for demo / evaluation
   const [isTamperSimulated, setIsTamperSimulated] = useState(false);
 
-  // Sync lookupParam from context / URL hash
+  // Sync lookupParam from context / hash
   useEffect(() => {
     if (lookupParam) {
       setSearchInput(lookupParam);
-      const found = batches.find(b => 
-        (b.batchId && b.batchId.toUpperCase() === lookupParam.toUpperCase()) ||
-        (b.batchNumber && b.batchNumber.toUpperCase() === lookupParam.toUpperCase())
-      );
-      setActiveBatch(found || null);
-    } else if (batches.length > 0 && !activeBatch) {
-      setActiveBatch(batches[0]);
-      setSearchInput(batches[0].batchId || batches[0].batchNumber);
+      setSelectedBatchId(lookupParam);
     }
-  }, [lookupParam, batches]);
+  }, [lookupParam]);
 
-  // Handle Search submit
-  const handleSearch = (e) => {
-    e?.preventDefault();
-    const clean = searchInput.trim().toUpperCase();
-    setLookupParam(clean);
-    const found = batches.find(b => 
+  // Find active batch in context
+  const activeBatch = useMemo(() => {
+    if (!selectedBatchId) return batches[0] || null;
+    const clean = selectedBatchId.trim().toUpperCase();
+    return batches.find(b =>
       (b.batchId && b.batchId.toUpperCase() === clean) ||
       (b.batchNumber && b.batchNumber.toUpperCase() === clean)
-    );
-    setActiveBatch(found || null);
-  };
+    ) || null;
+  }, [batches, selectedBatchId]);
 
-  // Select batch directly from sample pills
-  const handleSelectBatch = (batchId) => {
-    const clean = batchId.trim().toUpperCase();
-    setSearchInput(clean);
-    setLookupParam(clean);
-    const found = batches.find(b => 
-      (b.batchId && b.batchId.toUpperCase() === clean) ||
-      (b.batchNumber && b.batchNumber.toUpperCase() === clean)
-    );
-    setActiveBatch(found || null);
-    window.location.hash = `#lookup/${clean}`;
-  };
+  // Find associated beekeeper
+  const beekeeper = useMemo(() => {
+    if (!activeBatch) return null;
+    return beekeepers.find(b =>
+      b.beekeeperId === activeBatch.beekeeperId ||
+      b.id === activeBatch.beekeeperId ||
+      b.name === activeBatch.beekeeperName
+    ) || null;
+  }, [beekeepers, activeBatch]);
 
-  // Run verifyChain() on the full batch array
-  // If judge clicked "Simulate Tampering", we inject a tampered block into the evaluation array
-  const chainVerificationResult = useMemo(() => {
+  // Generate QR code data URL for active batchId
+  useEffect(() => {
+    const currentId = activeBatch?.batchId || activeBatch?.batchNumber;
+    if (currentId) {
+      QRCode.toDataURL(currentId, {
+        width: 200,
+        margin: 2,
+        errorCorrectionLevel: 'H',
+        color: {
+          dark: '#080a10',
+          light: '#ffffff'
+        }
+      }).then(url => {
+        setBatchQrUrl(url);
+      }).catch(err => {
+        console.error('Failed to generate batch QR:', err);
+      });
+    }
+  }, [activeBatch]);
+
+  // Evaluate chain integrity
+  const chainResult = useMemo(() => {
     if (!batches || batches.length === 0) {
-      return { isValid: true, reason: 'Empty chain', totalVerified: 0 };
+      return { isValid: true, reason: 'Empty chain' };
     }
 
     if (isTamperSimulated) {
-      // Clone batches and tamper with moisture & purity in Block #1 to simulate fraudulent alteration
+      // Create clone with corrupted moisture/purity at block #1
       const tamperedArray = JSON.parse(JSON.stringify(batches));
       if (tamperedArray.length > 1) {
-        tamperedArray[1].moisturePercent = 21.8; // Tampered moisture!
-        tamperedArray[1].purityScore = 88.0;     // Diluted with corn syrup!
+        tamperedArray[1].moisturePercent = 22.5;
         tamperedArray[1].qualityTestResult = 'TAMPERED: High Fructose Corn Syrup Injected';
       }
       return verifyChain(tamperedArray);
@@ -81,25 +93,43 @@ export function ConsumerLookupPage() {
     return verifyChain(batches);
   }, [batches, isTamperSimulated]);
 
-  // QR Scanner Initialization with html5-qrcode
+  // Handle Search submit
+  const handleSearchSubmit = (e) => {
+    e?.preventDefault();
+    const clean = searchInput.trim().toUpperCase();
+    setSelectedBatchId(clean);
+    setLookupParam(clean);
+    window.location.hash = `#lookup/${clean}`;
+  };
+
+  const handleSelectBatch = useCallback((batchId) => {
+    const clean = batchId.trim().toUpperCase();
+    setSearchInput(clean);
+    setSelectedBatchId(clean);
+    setLookupParam(clean);
+    window.location.hash = `#lookup/${clean}`;
+  }, [setLookupParam]);
+
+  // Camera QR Scanner Initialization
   useEffect(() => {
     if (!isScannerOpen) return;
 
+    let scannerInstance = null;
     try {
-      const scanner = new Html5QrcodeScanner(
+      scannerInstance = new Html5QrcodeScanner(
         'qr-camera-stream',
-        { 
-          fps: 10, 
+        {
+          fps: 10,
           qrbox: { width: 220, height: 220 },
           rememberLastUsedCamera: true
         },
         false
       );
-      scannerRef.current = scanner;
+      scannerRef.current = scannerInstance;
 
-      scanner.render(
+      scannerInstance.render(
         (decodedText) => {
-          let batchCode = decodedText;
+          let batchCode = decodedText.trim();
           if (decodedText.includes('/verify/')) {
             batchCode = decodedText.split('/verify/')[1];
           } else if (decodedText.includes('#lookup/')) {
@@ -107,48 +137,24 @@ export function ConsumerLookupPage() {
           }
           handleSelectBatch(batchCode);
           setIsScannerOpen(false);
-          scanner.clear();
+          scannerInstance.clear().catch(() => {});
         },
-        (err) => {
-          // ignore scan frame ticks
+        () => {
+          // ignore scan tick frames
         }
       );
-    } catch (e) {
-      setScannerError('Camera access unavailable or permission denied. Use demo presets below.');
+    } catch (_err) {
+      setScannerError('Camera access unavailable. Use the search bar or presets below.');
     }
 
     return () => {
       if (scannerRef.current) {
         try {
           scannerRef.current.clear();
-        } catch (e) {}
+        } catch (_e) {}
       }
     };
-  }, [isScannerOpen]);
-
-  const handleCopyLink = () => {
-    if (!activeBatch) return;
-    const batchId = activeBatch.batchId || activeBatch.batchNumber;
-    const url = `${window.location.origin}${window.location.pathname}#lookup/${batchId}`;
-    navigator.clipboard?.writeText(url).then(() => {
-      setCopyStatus(true);
-      setTimeout(() => setCopyStatus(false), 2500);
-    });
-  };
-
-  const handlePrintCertificate = () => {
-    window.print();
-  };
-
-  // Find beekeeper record
-  const apiary = useMemo(() => {
-    if (!activeBatch) return null;
-    return beekeepers.find(b => 
-      b.id === activeBatch.beekeeperId || 
-      b.beekeeperId === activeBatch.beekeeperId ||
-      b.name === activeBatch.beekeeperName
-    );
-  }, [beekeepers, activeBatch]);
+  }, [isScannerOpen, handleSelectBatch]);
 
   return (
     <div className="page-container lookup-page-root">
@@ -158,71 +164,19 @@ export function ConsumerLookupPage() {
 
       {/* Page Header */}
       <div className="page-header-wrap">
-        <div className="page-tag-pill">Consumer Authentication Engine • Pure Provenance</div>
+        <div className="page-tag-pill">Consumer Authentication Engine</div>
         <h1 className="page-title">
-          Verify Honey <span className="gradient-honey-text">Batch Authenticity</span>
+          Honey Provenance <span className="gradient-honey-text">Lookup</span>
         </h1>
         <p className="page-subtitle">
-          Verify pure unadulterated raw honey. Inspect independent laboratory NMR spectrometry,
-          Aadhaar-verified beekeeper identity, and full cryptographic blockchain continuity.
+          Enter a batch ID or scan the QR code on your honey jar to verify origin, beekeeper identity, and chain integrity.
         </p>
       </div>
 
-      {/* Global Chain Integrity Indicator Banner */}
-      <div className="chain-integrity-master-wrap">
-        <div className={`chain-integrity-card ${chainVerificationResult.isValid ? 'integrity-verified' : 'integrity-tampered'}`}>
-          <div className="integrity-icon-col">
-            {chainVerificationResult.isValid ? (
-              <div className="integrity-badge-icon verified-pulse">🛡️</div>
-            ) : (
-              <div className="integrity-badge-icon tampered-pulse">⚠️</div>
-            )}
-          </div>
-
-          <div className="integrity-text-col">
-            <div className="integrity-title-row">
-              <span className="integrity-title">
-                {chainVerificationResult.isValid 
-                  ? 'Chain Integrity: Verified ✅' 
-                  : 'Tampering Detected ⚠️'}
-              </span>
-              <span className="integrity-count-tag font-mono">
-                {batches.length} Blocks Evaluated
-              </span>
-            </div>
-
-            <p className="integrity-desc">
-              {chainVerificationResult.isValid ? (
-                <>
-                  All <strong>{chainVerificationResult.totalVerified}</strong> honey harvest blocks sequentially match their SHA-256 parent hash digests. No deleted, inserted, or altered harvest metrics detected.
-                </>
-              ) : (
-                <span className="text-rose">
-                  <strong>Fraud Alert:</strong> {chainVerificationResult.reason}
-                </span>
-              )}
-            </p>
-          </div>
-
-          {/* Interactive Judge Demo Toggle */}
-          <div className="integrity-demo-col">
-            <button
-              id="simulate-tamper-toggle-btn"
-              className={`btn-tamper-demo ${isTamperSimulated ? 'btn-tamper-active' : ''}`}
-              onClick={() => setIsTamperSimulated(!isTamperSimulated)}
-              title="Demonstrate real-time cryptographic tamper detection to judges"
-            >
-              {isTamperSimulated ? '↺ Restore Genuine Chain' : '⚡ Simulate Tampering Attack'}
-            </button>
-            <span className="demo-hint-text">Judge Demonstration Mode</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Search & Camera QR Scanner Toolbar */}
+      {/* Search & QR Scanner Toolbar */}
       <div className="lookup-search-container">
         <div className="lookup-search-dual-box">
-          <form className="hero-search-box lookup-form" onSubmit={handleSearch}>
+          <form className="hero-search-box lookup-form" onSubmit={handleSearchSubmit}>
             <div className="search-icon-wrapper">
               <svg className="search-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8"></circle>
@@ -230,29 +184,30 @@ export function ConsumerLookupPage() {
               </svg>
             </div>
             <input
-              id="lookup-input"
+              id="lookup-batch-input"
               type="text"
               className="hero-search-input font-mono"
-              placeholder="Search Batch ID (e.g. HC-8921-NZ or HC-IN-7429)..."
+              placeholder="Enter Batch ID (e.g. HC-8921-NZ)..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
-            <button id="lookup-submit-btn" type="submit" className="btn-primary">
+            <button id="lookup-verify-btn" type="submit" className="btn-primary">
               <span>Verify Batch</span>
             </button>
           </form>
 
           {/* Camera QR Scanner Toggle */}
           <button
-            id="toggle-qr-scanner-btn"
+            id="scanner-toggle-btn"
+            type="button"
             className={`btn-secondary btn-qr-scan ${isScannerOpen ? 'active' : ''}`}
             onClick={() => setIsScannerOpen(!isScannerOpen)}
           >
-            <span>📷 {isScannerOpen ? 'Close Scanner' : 'Scan Jar QR'}</span>
+            <span>📷 {isScannerOpen ? 'Close Scanner' : 'Scan QR'}</span>
           </button>
         </div>
 
-        {/* Live Camera Scanner Modal / Drawer */}
+        {/* Live Camera Scanner Drawer */}
         {isScannerOpen && (
           <div className="qr-scanner-modal-drawer">
             <div className="scanner-drawer-header">
@@ -267,325 +222,197 @@ export function ConsumerLookupPage() {
                 <span>⚠️ {scannerError}</span>
               </div>
             )}
-
-            <div className="scanner-quick-presets">
-              <span className="scanner-quick-label">Or Simulate Instant Jar Scan:</span>
-              {batches.slice(0, 3).map(b => (
-                <button
-                  key={b.batchId || b.batchNumber}
-                  type="button"
-                  className="scanner-preset-chip"
-                  onClick={() => {
-                    handleSelectBatch(b.batchId || b.batchNumber);
-                    setIsScannerOpen(false);
-                  }}
-                >
-                  ⚡ Scan {b.batchId || b.batchNumber}
-                </button>
-              ))}
-            </div>
           </div>
         )}
 
-        {/* Quick Batch Select Pills */}
+        {/* Available Session Batches Quick Selection */}
         <div className="lookup-quick-pills">
-          <span className="pills-label">Available Session Batches:</span>
+          <span className="pills-label">Sample Batches:</span>
           {batches.map(b => {
             const bId = b.batchId || b.batchNumber;
             const isSelected = (activeBatch?.batchId || activeBatch?.batchNumber) === bId;
             return (
               <button
                 key={bId}
+                type="button"
                 className={`quick-pill-btn ${isSelected ? 'pill-active' : ''}`}
                 onClick={() => handleSelectBatch(bId)}
               >
                 <span className="dot"></span>
                 <strong>{bId}</strong>
-                <span className="pill-small-text">({b.floralType?.split(' ')[0] || 'Honey'})</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* CENTERPIECE CERTIFICATE CONTAINER */}
+      {/* MAIN DEMO SCREEN: CLEAN ONE CARD LAYOUT */}
       {activeBatch ? (
-        <div className="certificate-container centerpiece-cert" id="printable-certificate">
-          {/* Gold Crest Holographic Top Banner */}
-          <div className="cert-top-banner">
-            <div className="cert-badge-cluster">
-              <div className="cert-seal-icon-gold">🏆</div>
-              <div>
-                <div className="cert-seal-title">HONEYCHAIN VERIFIED CERTIFICATE OF AUTHENTICITY</div>
-                <div className="cert-seal-sub">
-                  Cryptographically Provenance-Sealed • 100% Unadulterated Raw Honey • Nuclear Magnetic Resonance (NMR) Verified
-                </div>
-              </div>
-            </div>
-
-            <div className="cert-actions-cluster">
-              <button
-                className="btn-cert-action"
-                onClick={handleCopyLink}
-                title="Copy direct verification URL"
-              >
-                {copyStatus ? '✓ Link Copied!' : '🔗 Share Link'}
-              </button>
-              <button
-                className="btn-cert-action"
-                onClick={handlePrintCertificate}
-                title="Print or Save PDF Certificate"
-              >
-                🖨️ Print Certificate
-              </button>
-            </div>
-          </div>
-
-          {/* Main 2-Column Certificate Layout */}
-          <div className="cert-main-grid">
-            {/* Left Column: Producer Identity & Honey Purity Metrics */}
-            <div className="cert-col-left">
-              {/* Batch Identity Card */}
-              <div className="cert-card cert-hero-card">
-                <div className="cert-card-header">
-                  <span className="cert-card-label">BLOCKCHAIN BATCH IDENTITY</span>
-                  <span className="cert-block-pill">Block #{activeBatch.blockIndex || 1}</span>
-                </div>
-
-                <div className="cert-batch-id-lg font-mono">
+        <div className="single-card-lookup-wrapper" id="batch-verification-card">
+          <div className="lookup-main-card">
+            {/* Card Header: Batch ID + Chain Integrity Result */}
+            <div className="lookup-card-topbar">
+              <div className="batch-identity-meta">
+                <span className="meta-badge-label">AUTHENTICATED BATCH</span>
+                <h2 className="lookup-batch-heading font-mono text-amber">
                   {activeBatch.batchId || activeBatch.batchNumber}
-                </div>
-
-                <div className="cert-flora-title">
-                  🌸 {activeBatch.floralType || 'Pure Monofloral Raw Honey'}
-                </div>
-
-                {/* Core Test Results Strip */}
-                <div className="cert-metrics-row">
-                  <div className="metric-box">
-                    <span className="metric-lbl">NMR Purity Score</span>
-                    <span className="metric-val text-emerald">
-                      {activeBatch.purityScore ? `${activeBatch.purityScore}%` : '99.4%'}
-                    </span>
-                    <span className="metric-note">Exogenous Sugars: 0.0%</span>
-                  </div>
-
-                  <div className="metric-box">
-                    <span className="metric-lbl">Moisture Content</span>
-                    <span className="metric-val text-amber">
-                      {activeBatch.moisturePercent}%
-                    </span>
-                    <span className="metric-note">Max Standard: &le;18.6%</span>
-                  </div>
-
-                  <div className="metric-box">
-                    <span className="metric-lbl">Yield Volume</span>
-                    <span className="metric-val text-cyan">
-                      {activeBatch.quantityKg} kg
-                    </span>
-                    <span className="metric-note">{activeBatch.jarCount || activeBatch.quantityKg * 2} Jars</span>
-                  </div>
-                </div>
-
-                {/* Quality Test Result Highlight */}
-                <div className="cert-quality-result-highlight">
-                  <span className="quality-lbl">OFFICIAL LAB QUALITY TEST RESULT:</span>
-                  <div className="quality-val-badge">
-                    <span className="badge-shield-icon">🔬</span>
-                    <span className="quality-text font-mono">
-                      {activeBatch.qualityTestResult || `${activeBatch.purityScore || 99.4}% NMR Spectrometry — Grade A Raw Honey`}
-                    </span>
-                  </div>
-                </div>
-
-                {/* QR Code Jar Seal */}
-                <div className="cert-qr-container">
-                  <QRCodeSvg
-                    value={activeBatch.batchId || activeBatch.batchNumber}
-                    size={140}
-                  />
-                  <div className="cert-qr-legend">
-                    <div className="qr-legend-title">Immutable Jar Seal</div>
-                    <div className="qr-legend-hash font-mono">
-                      <span>SHA-256 Block Digest:</span>
-                      <code>{(activeBatch.hash || activeBatch.blockHash || '').slice(0, 22)}...{(activeBatch.hash || activeBatch.blockHash || '').slice(-12)}</code>
-                    </div>
-                    <p className="qr-legend-desc">
-                      Every sealed jar carries this cryptographic hash linked to parent Block #{Math.max(0, (activeBatch.blockIndex || 1) - 1)}.
-                    </p>
-                  </div>
-                </div>
+                </h2>
               </div>
 
-              {/* Verified Beekeeper Profile Card */}
-              <div className="cert-card mt-4 cert-producer-card">
-                <div className="cert-card-header">
-                  <span className="cert-card-label">PRODUCER PROVENANCE</span>
-                  <span className="cert-verified-node-tag font-mono">
-                    {apiary?.beekeeperId || apiary?.nodeId || 'BEE-PRODUCER'}
-                  </span>
-                </div>
-
-                {/* Beekeeper Name with Mandatory "Verified via Aadhaar" Badge */}
-                <div className="beekeeper-name-badge-row">
-                  <h3 className="cert-apiary-name">
-                    {activeBatch.beekeeperName || apiary?.beekeeperName || apiary?.name || 'Master Beekeeper'}
-                  </h3>
-                  
-                  {/* Verified via Aadhaar Badge */}
-                  <div className="aadhaar-verified-tag" id="aadhaar-verified-badge" title="Identity cryptographically authenticated via simulated UIDAI e-KYC">
-                    <span className="aadhaar-shield-icon">🛡️</span>
-                    <span className="aadhaar-tag-text">Verified via Aadhaar</span>
+              {/* Chain-Integrity Check Result Banner */}
+              <div className="chain-integrity-result-box">
+                {chainResult.isValid ? (
+                  <div className="integrity-status-pill status-verified" id="chain-integrity-status">
+                    <span className="status-indicator-dot dot-verified"></span>
+                    <span className="status-text font-semibold">Chain Integrity: Verified ✅</span>
                   </div>
-                </div>
-
-                {/* Apiary Location */}
-                <div className="cert-apiary-location">
-                  📍 <strong>Apiary Location:</strong> {activeBatch.location || apiary?.location || apiary?.region || 'Kangra Valley, Himachal Pradesh, India'}
-                </div>
-
-                {/* Harvest Date */}
-                <div className="cert-harvest-date-badge">
-                  📅 <strong>Harvest Date:</strong> {activeBatch.harvestDate}
-                  {activeBatch.extractionDate && (
-                    <span className="text-muted"> (Cold Extracted: {activeBatch.extractionDate})</span>
-                  )}
-                </div>
-
-                {apiary?.bio && (
-                  <p className="cert-apiary-bio">"{apiary.bio}"</p>
+                ) : (
+                  <div className="integrity-status-pill status-tampered" id="chain-integrity-status">
+                    <span className="status-indicator-dot dot-tampered"></span>
+                    <span className="status-text font-semibold">Chain Integrity: Tampering Detected ⚠️</span>
+                  </div>
                 )}
 
-                {/* Certifications Row */}
-                <div className="cert-certs-flex">
-                  <span className="apiary-cert-chip">✓ 100% Raw Honey</span>
-                  <span className="apiary-cert-chip">✓ UIDAI e-KYC Authenticated</span>
-                  <span className="apiary-cert-chip">✓ Nuclear Magnetic Resonance Tested</span>
-                  <span className="apiary-cert-chip">✓ Cold Centrifugal Extraction</span>
-                </div>
+                {/* Judge Demo Toggle for Tampering Simulation */}
+                <button
+                  id="tamper-demo-toggle"
+                  type="button"
+                  className={`tamper-toggle-btn ${isTamperSimulated ? 'active' : ''}`}
+                  onClick={() => setIsTamperSimulated(!isTamperSimulated)}
+                  title="Toggle tampering simulation to test tamper detection"
+                >
+                  {isTamperSimulated ? '↺ Restore Chain' : '⚡ Simulate Tampering'}
+                </button>
               </div>
             </div>
 
-            {/* Right Column: 5-Step Custody Journey & Blockchain Proof */}
-            <div className="cert-col-right">
-              {/* Custody Timeline */}
-              <div className="cert-card cert-timeline-card">
-                <div className="cert-card-header">
-                  <span className="cert-card-label">TAMPER-EVIDENT CUSTODY JOURNEY</span>
-                  <span className="text-emerald">5 Steps Validated</span>
-                </div>
-
-                <div className="provenance-timeline">
-                  {/* Step 1: Foraging */}
-                  <div className="timeline-item">
-                    <div className="timeline-icon-box">🐝</div>
-                    <div className="timeline-content">
-                      <div className="timeline-step-head">
-                        <span className="step-title">1. Apiary Hive Foraging</span>
-                        <span className="step-date font-mono">{activeBatch.harvestDate}</span>
-                      </div>
-                      <p className="step-text">
-                        Nectar gathered by honeybees in pristine floral sanctuary at <strong>{activeBatch.location || apiary?.location || 'Protected Sanctuary'}</strong>.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Step 2: Extraction */}
-                  <div className="timeline-item">
-                    <div className="timeline-icon-box">🍯</div>
-                    <div className="timeline-content">
-                      <div className="timeline-step-head">
-                        <span className="step-title">2. Raw Cold Extraction</span>
-                        <span className="step-date font-mono">{activeBatch.extractionDate || activeBatch.harvestDate}</span>
-                      </div>
-                      <p className="step-text">
-                        Zero thermal pasteurization (&lt;35°C). Natural invertase and diastase enzymes intact. Moisture verified at {activeBatch.moisturePercent}%.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Step 3: Laboratory NMR Testing */}
-                  <div className="timeline-item">
-                    <div className="timeline-icon-box">🔬</div>
-                    <div className="timeline-content">
-                      <div className="timeline-step-head">
-                        <span className="step-title">3. Laboratory NMR Spectrometry</span>
-                        <span className="step-date text-emerald font-mono">
-                          {activeBatch.labCertNumber || 'LAB-ISO-9921'}
-                        </span>
-                      </div>
-                      <p className="step-text">
-                        <strong>Test Result:</strong> {activeBatch.qualityTestResult || `${activeBatch.purityScore || 99.4}% NMR Purity`}. Zero corn or rice syrup markers.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Step 4: Aadhaar Beekeeper Signature */}
-                  <div className="timeline-item">
-                    <div className="timeline-icon-box">🛡️</div>
-                    <div className="timeline-content">
-                      <div className="timeline-step-head">
-                        <span className="step-title">4. Producer Identity e-KYC</span>
-                        <span className="step-date text-amber font-mono">Verified via Aadhaar</span>
-                      </div>
-                      <p className="step-text">
-                        Batch custody authenticated to licensed beekeeper <strong>{activeBatch.beekeeperName || apiary?.beekeeperName}</strong> (ID: {apiary?.beekeeperId || 'BEE-IND'}).
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Step 5: Blockchain Block Anchoring */}
-                  <div className="timeline-item">
-                    <div className="timeline-icon-box">🔗</div>
-                    <div className="timeline-content">
-                      <div className="timeline-step-head">
-                        <span className="step-title">5. Cryptographic Block Chaining</span>
-                        <span className="step-date text-cyan font-mono">Block #{activeBatch.blockIndex || 1}</span>
-                      </div>
-                      <div className="step-hash-box">
-                        <div className="font-mono hash-line">
-                          <span className="hash-tag">Block Hash (SHA-256):</span>
-                          <code className="text-amber">{activeBatch.hash || activeBatch.blockHash}</code>
-                        </div>
-                        <div className="font-mono hash-line mt-1">
-                          <span className="hash-tag">Previous Parent Hash:</span>
-                          <code className="text-muted">{activeBatch.previousHash || activeBatch.prevHash}</code>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {/* Tamper Warning Message if Detected */}
+            {!chainResult.isValid && (
+              <div className="tamper-alert-bar">
+                <span className="tamper-icon">⚠️</span>
+                <span>
+                  <strong>Cryptographic Violation:</strong> {chainResult.reason || 'Data tampering detected in blockchain history!'}
+                </span>
               </div>
+            )}
 
-              {/* Organoleptic Sensory Card */}
-              <div className="cert-card mt-4">
-                <div className="cert-card-header">
-                  <span className="cert-card-label">SENSORY TASTING NOTES & COLOR</span>
-                  <span className="text-amber">Pfund Scale Certified</span>
-                </div>
-                <div className="sensory-grid">
-                  <div className="sensory-item">
-                    <span className="sensory-label">Color Grade:</span>
-                    <span className="sensory-value">{activeBatch.colorGrade || 'Golden Amber (50mm Pfund)'}</span>
+            {/* Core Card Content Grid */}
+            <div className="lookup-card-body-grid">
+              {/* Left Column: Beekeeper, Harvest Date, Quality Result */}
+              <div className="lookup-info-col">
+                {/* 1. Beekeeper Name with "Verified" badge */}
+                <div className="lookup-info-row beekeeper-row">
+                  <div className="row-label">Beekeeper / Apiary</div>
+                  <div className="beekeeper-verified-group">
+                    <span className="beekeeper-name-display" id="lookup-beekeeper-name">
+                      {activeBatch.beekeeperName || beekeeper?.name || beekeeper?.beekeeperName || 'Registered Apiary'}
+                    </span>
+                    <span className="badge-verified-seal" id="lookup-verified-badge">
+                      Verified ✅
+                    </span>
                   </div>
-                  <div className="sensory-item">
-                    <span className="sensory-label">Aroma & Palate:</span>
-                    <span className="sensory-value italic">
-                      "{activeBatch.sensoryNotes || 'Silky crystal formation, floral meadow warmth, velvety mouthfeel, zero adulteration.'}"
+                  <div className="beekeeper-location-sub">
+                    📍 {activeBatch.location || beekeeper?.location || 'Registered Honey Sanctuary'}
+                  </div>
+                </div>
+
+                {/* 2. Harvest Date */}
+                <div className="lookup-info-row">
+                  <div className="row-label">Harvest Date</div>
+                  <div className="row-value font-mono text-primary" id="lookup-harvest-date">
+                    📅 {activeBatch.harvestDate}
+                  </div>
+                </div>
+
+                {/* 3. Quantity (kg) */}
+                <div className="lookup-info-row">
+                  <div className="row-label">Quantity</div>
+                  <div className="row-value font-mono text-cyan" id="lookup-quantity">
+                    ⚖️ {activeBatch.quantityKg} kg
+                  </div>
+                </div>
+
+                {/* 4. Quality Result */}
+                <div className="lookup-info-row quality-row">
+                  <div className="row-label">Quality Test Result</div>
+                  <div className="quality-result-badge" id="lookup-quality-result">
+                    <span className="quality-icon">🔬</span>
+                    <span className="quality-text font-mono text-emerald">
+                      {activeBatch.qualityTestResult || `${activeBatch.purityScore || 99.4}% NMR Purity — Passed Grade A`}
                     </span>
                   </div>
                 </div>
               </div>
+
+              {/* Right Column: Scannable QR Code & Cryptographic Block Hash */}
+              <div className="lookup-qr-col">
+                <div className="lookup-qr-card">
+                  <div className="qr-title-tag">SEALED JAR QR CODE</div>
+                  {batchQrUrl ? (
+                    <img
+                      src={batchQrUrl}
+                      alt={`QR code for ${activeBatch.batchId || activeBatch.batchNumber}`}
+                      className="lookup-qr-image"
+                      id="lookup-qr-image"
+                    />
+                  ) : (
+                    <div className="qr-placeholder">Generating QR...</div>
+                  )}
+                  <div className="qr-batch-code font-mono text-amber">
+                    {activeBatch.batchId || activeBatch.batchNumber}
+                  </div>
+                  <div className="qr-caption-text">
+                    Encodes Batch ID for instant smartphone verification.
+                  </div>
+                </div>
+
+                {/* Cryptographic Ledger Proof */}
+                <div className="card-crypto-footer font-mono">
+                  <div className="hash-line-item">
+                    <span className="hash-label">Block Hash:</span>
+                    <code className="hash-code text-amber">
+                      {(activeBatch.hash || activeBatch.blockHash || '').slice(0, 18)}...{(activeBatch.hash || activeBatch.blockHash || '').slice(-10)}
+                    </code>
+                  </div>
+                  <div className="hash-line-item">
+                    <span className="hash-label">Previous Hash:</span>
+                    <code className="hash-code text-muted">
+                      {(activeBatch.previousHash || activeBatch.prevHash || '').slice(0, 18)}...{(activeBatch.previousHash || activeBatch.prevHash || '').slice(-10)}
+                    </code>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card Footer Actions */}
+            <div className="lookup-card-footer">
+              <button
+                type="button"
+                className="btn-tertiary"
+                onClick={() => {
+                  const url = `${window.location.origin}${window.location.pathname}#lookup/${activeBatch.batchId || activeBatch.batchNumber}`;
+                  navigator.clipboard?.writeText(url);
+                }}
+              >
+                <span>🔗 Share Verification Link</span>
+              </button>
+              <button
+                type="button"
+                className="btn-tertiary"
+                onClick={() => window.print()}
+              >
+                <span>🖨️ Print Certificate</span>
+              </button>
             </div>
           </div>
         </div>
       ) : (
-        /* Not Found Empty State */
+        /* Empty State */
         <div className="not-found-card">
           <div className="not-found-icon">🔍</div>
           <h2 className="not-found-title">Batch #{searchInput} Not Found</h2>
           <p className="not-found-desc">
-            No honey harvest records match this ID in active session memory. Please select an existing batch:
+            No honey harvest records match this ID in active session memory. Please pick a batch below:
           </p>
           <div className="not-found-pills">
             {batches.map(b => {
@@ -596,7 +423,7 @@ export function ConsumerLookupPage() {
                   className="btn-secondary"
                   onClick={() => handleSelectBatch(bId)}
                 >
-                  <span>{bId} ({b.floralType?.split(' ')[0] || 'Honey'})</span>
+                  <span>{bId}</span>
                 </button>
               );
             })}

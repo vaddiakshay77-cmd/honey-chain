@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import QRCode from 'qrcode';
 import { useHoneyChain } from '../context/HoneyChainContext';
 import { createBatchHash, GENESIS_PREV_HASH } from '../utils/hashChain';
@@ -7,46 +7,30 @@ import { generateBatchNumber } from '../utils/crypto';
 export function BatchEntryPage() {
   const { beekeepers, batches, addBatchToChain, navigateTo } = useHoneyChain();
 
-  // Find verified beekeepers first; fallback to all registered beekeepers
+  // Filter only verified beekeepers
   const verifiedBeekeepers = useMemo(() => {
-    return beekeepers.filter(b => b.verified !== false);
+    return beekeepers.filter(b => b.verified === true);
   }, [beekeepers]);
 
-  const defaultBeekeeper = verifiedBeekeepers[0] || beekeepers[0] || null;
+  const defaultBeekeeper = verifiedBeekeepers[0] || null;
 
-  // Form State
+  // Form fields: dropdown for verified beekeeper, harvest date, quantity (kg), quality test result
   const [formData, setFormData] = useState({
-    beekeeperId: defaultBeekeeper ? (defaultBeekeeper.id || defaultBeekeeper.beekeeperId) : '',
-    batchId: generateBatchNumber(defaultBeekeeper?.regionCode || 'IN'),
+    beekeeperId: defaultBeekeeper ? (defaultBeekeeper.beekeeperId || defaultBeekeeper.id) : '',
     harvestDate: new Date().toISOString().split('T')[0],
-    quantityKg: 250,
-    location: defaultBeekeeper?.location || defaultBeekeeper?.region || 'Kangra Valley, Himachal Pradesh',
-    qualityTestResult: '99.4% NMR Purity — Monofloral Certified (Grade A)',
-    floralType: defaultBeekeeper?.flora || 'Wild Multifloral & Mustard Blossom',
-    moisturePercent: 16.5,
-    labCertNumber: `LAB-ISO-${Math.floor(1000 + Math.random() * 9000)}`
+    quantityKg: '',
+    qualityTestResult: '99.4% NMR Purity — Grade A Raw Honey'
   });
 
-  // Submitted / Minted batch state
-  const [mintedResult, setMintedResult] = useState(null);
-  const [generatedQrDataUrl, setGeneratedQrDataUrl] = useState('');
-  const [previewQrDataUrl, setPreviewQrDataUrl] = useState('');
+  const [mintedBatch, setMintedBatch] = useState(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [isMinting, setIsMinting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Auto-sync location & flora when beekeeper changes
-  const handleBeekeeperChange = (e) => {
-    const bId = e.target.value;
-    const selected = beekeepers.find(b => (b.id === bId || b.beekeeperId === bId));
-    setFormData(prev => ({
-      ...prev,
-      beekeeperId: bId,
-      location: selected?.location || selected?.region || prev.location,
-      floralType: selected?.flora || prev.floralType,
-      batchId: generateBatchNumber(selected?.regionCode || 'IN')
-    }));
-    if (errorMsg) setErrorMsg('');
-  };
+  // Selected beekeeper object
+  const selectedBeekeeper = useMemo(() => {
+    return verifiedBeekeepers.find(b => (b.beekeeperId === formData.beekeeperId || b.id === formData.beekeeperId)) || defaultBeekeeper;
+  }, [verifiedBeekeepers, formData.beekeeperId, defaultBeekeeper]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -54,123 +38,76 @@ export function BatchEntryPage() {
     if (errorMsg) setErrorMsg('');
   };
 
-  // Selected beekeeper object
-  const currentBeekeeper = useMemo(() => {
-    return beekeepers.find(b => (b.id === formData.beekeeperId || b.beekeeperId === formData.beekeeperId)) || defaultBeekeeper;
-  }, [beekeepers, formData.beekeeperId, defaultBeekeeper]);
-
-  // Last batch in the chain for previousHash linking
-  const lastBatch = batches[batches.length - 1];
-  const previousHash = lastBatch ? (lastBatch.hash || lastBatch.blockHash) : GENESIS_PREV_HASH;
-  const nextBlockIndex = batches.length + 1;
-
-  // Live preview hash calculation using createBatchHash
-  const previewHash = useMemo(() => {
-    const payload = {
-      batchId: formData.batchId,
-      beekeeperId: formData.beekeeperId,
-      harvestDate: formData.harvestDate,
-      quantityKg: Number(formData.quantityKg),
-      location: formData.location,
-      qualityTestResult: formData.qualityTestResult,
-      floralType: formData.floralType
-    };
-    return createBatchHash(payload, previousHash);
-  }, [formData, previousHash]);
-
-  // Generate live preview QR code whenever batchId changes using qrcode library
-  useEffect(() => {
-    if (formData.batchId) {
-      QRCode.toDataURL(formData.batchId, {
-        width: 180,
-        margin: 2,
-        color: {
-          dark: '#080a10',
-          light: '#ffffff'
-        }
-      }).then(url => {
-        setPreviewQrDataUrl(url);
-      }).catch(err => {
-        console.error('Error generating preview QR:', err);
-      });
-    }
-  }, [formData.batchId]);
-
-  // Handle Submit: call createBatchHash(), add to Context state, generate downloadable QR
+  // On submit: call createBatchHash using previous batch's hash, add to Context, display QR code
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.beekeeperId) {
-      setErrorMsg('Please select a registered beekeeper.');
+      setErrorMsg('Please select a verified beekeeper from the dropdown.');
       return;
     }
     if (!formData.harvestDate) {
-      setErrorMsg('Please select a harvest date.');
+      setErrorMsg('Please specify a harvest date.');
       return;
     }
     if (!formData.quantityKg || Number(formData.quantityKg) <= 0) {
       setErrorMsg('Please enter a valid quantity in kg.');
       return;
     }
-    if (!formData.location.trim()) {
-      setErrorMsg('Please enter the apiary location.');
-      return;
-    }
     if (!formData.qualityTestResult.trim()) {
-      setErrorMsg('Please enter the quality test result.');
+      setErrorMsg('Please provide the quality test result.');
       return;
     }
 
-    setIsMinting(true);
+    setIsSubmitting(true);
     setErrorMsg('');
 
     try {
-      const timestamp = new Date().toISOString();
-      const batchId = formData.batchId.trim().toUpperCase();
+      // 1. Get previous batch hash
+      const previousBatch = batches.length > 0 ? batches[batches.length - 1] : null;
+      const previousHash = previousBatch ? (previousBatch.hash || previousBatch.blockHash) : GENESIS_PREV_HASH;
+      const blockIndex = batches.length + 1;
 
-      // Step 1: Prepare batch data object
-      const batchData = {
+      // 2. Generate unique batchId
+      const batchId = generateBatchNumber(selectedBeekeeper?.regionCode || 'IN');
+      const timestamp = new Date().toISOString();
+
+      // 3. Prepare payload for hashing
+      const batchPayload = {
         batchId,
-        batchNumber: batchId,
-        blockIndex: nextBlockIndex,
-        beekeeperId: currentBeekeeper?.beekeeperId || formData.beekeeperId,
-        beekeeperName: currentBeekeeper?.beekeeperName || currentBeekeeper?.name || 'Verified Beekeeper',
+        blockIndex,
+        beekeeperId: selectedBeekeeper?.beekeeperId || formData.beekeeperId,
+        beekeeperName: selectedBeekeeper?.name || selectedBeekeeper?.beekeeperName || 'Verified Apiary',
         harvestDate: formData.harvestDate,
-        extractionDate: formData.harvestDate,
         quantityKg: Number(formData.quantityKg),
-        jarCount: Math.round(Number(formData.quantityKg) * 2), // 500g jars
-        location: formData.location.trim(),
-        region: formData.location.trim(),
         qualityTestResult: formData.qualityTestResult.trim(),
-        purityScore: parseFloat(formData.qualityTestResult) || 99.2,
-        moisturePercent: Number(formData.moisturePercent) || 16.5,
-        floralType: formData.floralType || 'Monofloral Raw Honey',
-        labCertNumber: formData.labCertNumber,
-        pollenCountRatio: '84%+ Monofloral DNA Match',
-        colorGrade: 'Golden Amber (50mm Pfund)',
-        sensoryNotes: 'Floral bouquet, silky crystal formation, zero additive syrups.',
-        nmrSpectrumStatus: 'Pass — 100% Raw Unadulterated Honey',
+        location: selectedBeekeeper?.location || selectedBeekeeper?.region || 'India',
         timestamp
       };
 
-      // Step 2: Call createBatchHash() using the last batch's hash as previousHash
-      const computedHash = createBatchHash(batchData, previousHash);
+      // 4. Call hash function using previous batch's hash
+      const blockHash = createBatchHash(batchPayload, previousHash);
 
-      // Step 3: Form full block object with hash and add to shared Context state array
+      // 5. Create full batch block
       const newBatch = {
-        ...batchData,
+        ...batchPayload,
+        batchNumber: batchId,
+        purityScore: parseFloat(formData.qualityTestResult) || 99.4,
+        moisturePercent: 16.5,
+        floralType: selectedBeekeeper?.flora || 'Monofloral Wild Raw Honey',
         previousHash,
         prevHash: previousHash,
-        hash: computedHash,
-        blockHash: computedHash,
+        hash: blockHash,
+        blockHash,
         status: 'Verified Authentic'
       };
 
+      // 6. Add new batch to Context
       addBatchToChain(newBatch);
 
-      // Step 4: Generate high-resolution QR code encoding the batchId using qrcode library
-      const qrDataUrl = await QRCode.toDataURL(batchId, {
-        width: 320,
+      // 7. Generate QR code encoding the batchId
+      const qrUrl = await QRCode.toDataURL(batchId, {
+        width: 280,
         margin: 2,
         errorCorrectionLevel: 'H',
         color: {
@@ -179,208 +116,172 @@ export function BatchEntryPage() {
         }
       });
 
-      setGeneratedQrDataUrl(qrDataUrl);
-      setMintedResult(newBatch);
-      setIsMinting(false);
+      setQrCodeDataUrl(qrUrl);
+      setMintedBatch(newBatch);
+      setIsSubmitting(false);
     } catch (err) {
-      console.error('Error minting batch:', err);
-      setErrorMsg('Failed to generate hash or QR code: ' + err.message);
-      setIsMinting(false);
+      console.error('Error logging batch:', err);
+      setErrorMsg('Failed to create batch: ' + err.message);
+      setIsSubmitting(false);
     }
   };
 
-  const handleResetForNextBatch = () => {
-    setMintedResult(null);
-    setGeneratedQrDataUrl('');
-    setFormData(prev => ({
-      ...prev,
-      batchId: generateBatchNumber(currentBeekeeper?.regionCode || 'IN'),
+  const handleReset = () => {
+    setMintedBatch(null);
+    setQrCodeDataUrl('');
+    setFormData({
+      beekeeperId: defaultBeekeeper ? (defaultBeekeeper.beekeeperId || defaultBeekeeper.id) : '',
       harvestDate: new Date().toISOString().split('T')[0],
-      quantityKg: 200,
-      labCertNumber: `LAB-ISO-${Math.floor(1000 + Math.random() * 9000)}`
-    }));
+      quantityKg: '',
+      qualityTestResult: '99.4% NMR Purity — Grade A Raw Honey'
+    });
+    setErrorMsg('');
   };
 
   return (
     <div className="page-container batch-entry-page">
       {/* Header */}
       <div className="page-header-wrap">
-        <div className="page-tag-pill">Provenance Protocol • Batch Ledger</div>
-        <h1 className="page-title">Log New Honey Batch</h1>
+        <div className="page-tag-pill">Provenance Protocol • Batch Minting</div>
+        <h1 className="page-title">Batch Entry</h1>
         <p className="page-subtitle">
-          Verified beekeepers can mint an immutable harvest batch to the HoneyChain ledger.
-          Each batch is cryptographically linked to the preceding block hash and assigned a scannable QR code.
+          Record a new honey harvest batch. Each batch is cryptographically linked to the previous batch hash
+          and assigned a verifiable QR code.
         </p>
       </div>
 
-      {/* MINTED SUCCESS POPUP / SCREEN */}
-      {mintedResult && generatedQrDataUrl && (
-        <div className="minted-modal-backdrop">
-          <div className="minted-modal-card">
-            <div className="minted-badge-top">BLOCK #{mintedResult.blockIndex} MINTED TO CHAIN</div>
-            <h2 className="minted-title">Honey Batch Chained Successfully!</h2>
-            <p className="minted-sub">
-              Batch <strong>{mintedResult.batchId}</strong> has been hashed with parent block #{mintedResult.blockIndex - 1} and stored in session memory.
+      <div className="form-card-container">
+        {/* POST-SUBMISSION: DISPLAY QR CODE & DETAILS */}
+        {mintedBatch && qrCodeDataUrl ? (
+          <div className="form-card text-center success-batch-card">
+            <div className="success-icon-badge">⛓️</div>
+            <h2 className="form-card-title">Batch Minted Successfully!</h2>
+            <p className="form-card-sub">
+              Batch <strong className="text-amber">{mintedBatch.batchId}</strong> has been added to the blockchain ledger (Block #{mintedBatch.blockIndex}).
             </p>
 
-            {/* QR Code Display with Download Option */}
-            <div className="batch-qr-showcase-box">
+            {/* Display QR Code encoding batchId */}
+            <div className="qr-display-box" id="minted-qr-display">
               <div className="qr-image-wrapper">
                 <img
-                  id="minted-batch-qr-img"
-                  src={generatedQrDataUrl}
-                  alt={`QR code for Honey Batch ${mintedResult.batchId}`}
-                  className="generated-qr-image"
+                  id="batch-qr-code-img"
+                  src={qrCodeDataUrl}
+                  alt={`QR code for batch ${mintedBatch.batchId}`}
+                  className="batch-qr-image"
                 />
-                <span className="qr-encoding-caption">
-                  Encodes Batch ID: <strong>{mintedResult.batchId}</strong>
-                </span>
               </div>
-
-              <div className="qr-download-panel">
-                <div className="qr-batch-title">{mintedResult.batchId}</div>
-                <div className="qr-meta-item">
-                  <span>Producer:</span> <strong>{mintedResult.beekeeperName}</strong>
-                </div>
-                <div className="qr-meta-item">
-                  <span>Location:</span> <strong>{mintedResult.location}</strong>
-                </div>
-                <div className="qr-meta-item">
-                  <span>Volume:</span> <strong>{mintedResult.quantityKg} kg ({mintedResult.jarCount} Jars)</strong>
-                </div>
-                <div className="qr-meta-item">
-                  <span>Quality:</span> <strong className="text-emerald">{mintedResult.qualityTestResult}</strong>
-                </div>
-
-                {/* Direct Download Button */}
-                <div className="qr-download-actions">
-                  <a
-                    id="download-qr-btn"
-                    href={generatedQrDataUrl}
-                    download={`HoneyChain-${mintedResult.batchId}-QR.png`}
-                    className="btn-primary btn-block"
-                  >
-                    📥 Download QR Code (PNG)
-                  </a>
-                  <button
-                    className="btn-secondary btn-block"
-                    onClick={() => navigateTo('lookup', mintedResult.batchId)}
-                  >
-                    🔍 Inspect Consumer Certificate
-                  </button>
+              <div className="qr-encoding-info">
+                <div className="qr-tag-label">ENCODED BATCH ID</div>
+                <div className="qr-encoded-id font-mono text-amber">{mintedBatch.batchId}</div>
+                <div className="qr-scan-instruction">
+                  Scan this QR code with any smartphone to inspect batch authenticity on Consumer Lookup.
                 </div>
               </div>
             </div>
 
-            {/* Cryptographic SHA-256 Digest Box */}
-            <div className="minted-hash-display">
-              <div className="hash-label-row">
-                <span>Computed Block Hash (createBatchHash):</span>
-                <span className="text-emerald">✓ SHA-256 Valid</span>
+            {/* Batch summary details */}
+            <div className="batch-summary-strip">
+              <div className="summary-item">
+                <span className="summary-lbl">Beekeeper:</span>
+                <span className="summary-val">{mintedBatch.beekeeperName}</span>
               </div>
-              <code className="minted-hash-code">{mintedResult.hash}</code>
-
-              <div className="hash-label-row mt-2">
-                <span>Chained From Previous Hash (Block #{mintedResult.blockIndex - 1}):</span>
+              <div className="summary-item">
+                <span className="summary-lbl">Harvest Date:</span>
+                <span className="summary-val">{mintedBatch.harvestDate}</span>
               </div>
-              <code className="minted-hash-code text-muted">{mintedResult.previousHash}</code>
+              <div className="summary-item">
+                <span className="summary-lbl">Quantity:</span>
+                <span className="summary-val">{mintedBatch.quantityKg} kg</span>
+              </div>
+              <div className="summary-item">
+                <span className="summary-lbl">Quality Result:</span>
+                <span className="summary-val text-emerald">{mintedBatch.qualityTestResult}</span>
+              </div>
             </div>
 
-            <div className="minted-modal-actions">
+            {/* Cryptographic Link Proof */}
+            <div className="batch-crypto-summary font-mono">
+              <div className="crypto-hash-row">
+                <span className="hash-lbl">Previous Batch Hash:</span>
+                <span className="hash-val text-muted">{mintedBatch.previousHash?.slice(0, 20)}...{mintedBatch.previousHash?.slice(-10)}</span>
+              </div>
+              <div className="crypto-hash-row">
+                <span className="hash-lbl">Computed Batch Hash:</span>
+                <span className="hash-val text-amber">{mintedBatch.hash?.slice(0, 20)}...{mintedBatch.hash?.slice(-10)}</span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="success-actions-row">
               <button
-                id="mint-another-batch-btn"
-                className="btn-secondary"
-                onClick={handleResetForNextBatch}
+                id="view-in-lookup-btn"
+                className="btn-primary btn-lg"
+                onClick={() => navigateTo('lookup', mintedBatch.batchId)}
               >
-                + Log Another Batch
+                <span>🔍 Open in Consumer Lookup →</span>
               </button>
+              <a
+                href={qrCodeDataUrl}
+                download={`${mintedBatch.batchId}-qrcode.png`}
+                className="btn-secondary"
+              >
+                <span>💾 Download QR Image</span>
+              </a>
               <button
                 className="btn-tertiary"
-                onClick={() => navigateTo('admin')}
+                onClick={handleReset}
               >
-                📊 Open Blockchain Explorer
+                <span>+ Log Another Batch</span>
               </button>
             </div>
           </div>
-        </div>
-      )}
+        ) : (
+          /* BATCH ENTRY FORM */
+          <div className="form-card">
+            <h2 className="form-card-title">Honey Harvest Details</h2>
+            <p className="form-card-sub">
+              Select an authenticated beekeeper and record harvest metrics to calculate the cryptographic block hash.
+            </p>
 
-      <div className="form-preview-layout">
-        {/* Main Batch Entry Form */}
-        <div className="form-card">
-          <h2 className="form-card-title">Honey Harvest & Lab Credentials</h2>
-          <p className="form-card-sub">
-            All fields are hashed with <code>createBatchHash()</code> and chained to the last block in memory.
-          </p>
+            {errorMsg && (
+              <div className="form-error-alert">
+                <span>⚠️ {errorMsg}</span>
+              </div>
+            )}
 
-          {errorMsg && (
-            <div className="form-error-alert">
-              <span>⚠️ {errorMsg}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="standard-form">
-            {/* 1. Verified Beekeeper Dropdown */}
-            <div className="form-group">
-              <label className="form-label" htmlFor="beekeeper-select">
-                Select Verified Beekeeper <span className="req">*</span>
-                {currentBeekeeper?.verified && (
-                  <span className="verified-badge-inline">✓ UIDAI e-KYC Verified</span>
-                )}
-              </label>
-              <select
-                id="beekeeper-select"
-                name="beekeeperId"
-                className="form-select"
-                value={formData.beekeeperId}
-                onChange={handleBeekeeperChange}
-                required
-              >
-                {beekeepers.map(b => (
-                  <option key={b.id || b.beekeeperId} value={b.id || b.beekeeperId}>
-                    {b.beekeeperName || b.name} ({b.location || b.region}) — {b.beekeeperId || b.nodeId} {b.verified ? '[✓ Verified]' : ''}
-                  </option>
-                ))}
-              </select>
-              <span className="field-subtext">
-                Beekeepers registered via the Beekeeper Registration portal appear here automatically.
-              </span>
-            </div>
-
-            {/* Batch ID & Harvest Date */}
-            <div className="form-grid-2">
+            <form onSubmit={handleSubmit} className="standard-form">
+              {/* Dropdown to pick a verified beekeeper */}
               <div className="form-group">
-                <label className="form-label" htmlFor="batch-id-input">
-                  Batch ID (Unique Code) <span className="req">*</span>
+                <label className="form-label" htmlFor="batch-beekeeper-select">
+                  Select Verified Beekeeper <span className="req">*</span>
                 </label>
-                <div className="input-btn-group">
-                  <input
-                    id="batch-id-input"
-                    name="batchId"
-                    type="text"
-                    className="form-input font-mono text-uppercase"
-                    value={formData.batchId}
-                    onChange={handleInputChange}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="btn-input-addon"
-                    onClick={() => setFormData(p => ({ ...p, batchId: generateBatchNumber(currentBeekeeper?.regionCode || 'IN') }))}
-                    title="Generate new Batch ID"
-                  >
-                    🎲 Random
-                  </button>
-                </div>
+                <select
+                  id="batch-beekeeper-select"
+                  name="beekeeperId"
+                  className="form-input"
+                  value={formData.beekeeperId}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="" disabled>-- Select a verified beekeeper --</option>
+                  {verifiedBeekeepers.map(b => (
+                    <option key={b.beekeeperId || b.id} value={b.beekeeperId || b.id}>
+                      {b.name || b.beekeeperName} ({b.beekeeperId || b.id}) — Verified ✓
+                    </option>
+                  ))}
+                </select>
+                <span className="field-subtext">
+                  Only UIDAI / e-KYC verified beekeepers with verified=true are eligible to mint batches
+                </span>
               </div>
 
-              {/* 2. Harvest Date */}
+              {/* Harvest Date */}
               <div className="form-group">
-                <label className="form-label" htmlFor="harvest-date-input">
+                <label className="form-label" htmlFor="batch-harvest-date">
                   Harvest Date <span className="req">*</span>
                 </label>
                 <input
-                  id="harvest-date-input"
+                  id="batch-harvest-date"
                   name="harvestDate"
                   type="date"
                   className="form-input"
@@ -389,210 +290,62 @@ export function BatchEntryPage() {
                   required
                 />
               </div>
-            </div>
 
-            {/* 3. Quantity in Kg & Moisture */}
-            <div className="form-grid-2">
+              {/* Quantity (kg) */}
               <div className="form-group">
-                <label className="form-label" htmlFor="quantity-kg-input">
-                  Quantity in Kg <span className="req">*</span>
+                <label className="form-label" htmlFor="batch-quantity">
+                  Quantity (kg) <span className="req">*</span>
                 </label>
                 <input
-                  id="quantity-kg-input"
+                  id="batch-quantity"
                   name="quantityKg"
                   type="number"
-                  min="1"
-                  max="50000"
-                  step="1"
+                  step="0.1"
+                  min="0.1"
                   className="form-input font-mono"
+                  placeholder="e.g. 250"
                   value={formData.quantityKg}
                   onChange={handleInputChange}
                   required
                 />
+              </div>
+
+              {/* Quality Test Result */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="batch-quality-result">
+                  Quality Test Result <span className="req">*</span>
+                </label>
+                <input
+                  id="batch-quality-result"
+                  name="qualityTestResult"
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. 99.4% NMR Purity — Monofloral Grade A"
+                  value={formData.qualityTestResult}
+                  onChange={handleInputChange}
+                  required
+                />
                 <span className="field-subtext">
-                  ≈ {Math.round((Number(formData.quantityKg) || 0) * 2)} sealed jars (500g each)
+                  Laboratory NMR spectrometry, pollen DNA count, or purity test grade
                 </span>
               </div>
 
-              <div className="form-group">
-                <label className="form-label" htmlFor="moisture-input">
-                  Moisture Content (%)
-                </label>
-                <input
-                  id="moisture-input"
-                  name="moisturePercent"
-                  type="number"
-                  step="0.1"
-                  min="12"
-                  max="22"
-                  className="form-input font-mono"
-                  value={formData.moisturePercent}
-                  onChange={handleInputChange}
-                />
-                <span className="field-subtext">Standard Grade A honey &le; 18.6%</span>
-              </div>
-            </div>
-
-            {/* 4. Apiary Location */}
-            <div className="form-group">
-              <label className="form-label" htmlFor="apiary-location-input">
-                Apiary Location <span className="req">*</span>
-              </label>
-              <input
-                id="apiary-location-input"
-                name="location"
-                type="text"
-                className="form-input"
-                placeholder="e.g. Kangra Valley, Himachal Pradesh, India"
-                value={formData.location}
-                onChange={handleInputChange}
-                required
-              />
-              <span className="field-subtext">Auto-filled from beekeeper profile; editable if multiple apiaries exist.</span>
-            </div>
-
-            {/* 5. Quality Test Result */}
-            <div className="form-group">
-              <label className="form-label" htmlFor="quality-test-input">
-                Quality Test Result <span className="req">*</span>
-              </label>
-              <input
-                id="quality-test-input"
-                name="qualityTestResult"
-                type="text"
-                className="form-input"
-                placeholder="e.g. 99.4% NMR Purity — Monofloral Certified (Grade A)"
-                value={formData.qualityTestResult}
-                onChange={handleInputChange}
-                required
-              />
-              <div className="quick-test-presets">
-                <span className="preset-label">Quick Presets:</span>
-                <button
-                  type="button"
-                  className="preset-chip"
-                  onClick={() => setFormData(p => ({ ...p, qualityTestResult: '99.6% NMR Purity — Monofloral Certified' }))}
-                >
-                  99.6% Monofloral
-                </button>
-                <button
-                  type="button"
-                  className="preset-chip"
-                  onClick={() => setFormData(p => ({ ...p, qualityTestResult: '98.8% Purity — Zero C3/C4 Syrups (Grade A)' }))}
-                >
-                  98.8% Grade A
-                </button>
-                <button
-                  type="button"
-                  className="preset-chip"
-                  onClick={() => setFormData(p => ({ ...p, qualityTestResult: '99.1% NMR Spectrometry — Pure Raw Raw State' }))}
-                >
-                  99.1% Pure Raw
-                </button>
-              </div>
-            </div>
-
-            {/* Floral Type Companion Field */}
-            <div className="form-group">
-              <label className="form-label" htmlFor="floral-type-input">
-                Botanical Floral Variety
-              </label>
-              <input
-                id="floral-type-input"
-                name="floralType"
-                type="text"
-                className="form-input"
-                value={formData.floralType}
-                onChange={handleInputChange}
-                placeholder="e.g. Wild Multifloral, Mustard, Acacia, Lavender"
-              />
-            </div>
-
-            {/* Submit Button */}
-            <button
-              id="submit-batch-btn"
-              type="submit"
-              className="btn-primary btn-block btn-lg"
-              disabled={isMinting}
-            >
-              {isMinting ? (
-                <span>⏳ Computing SHA-256 & Minting Block...</span>
-              ) : (
-                <span>⛓️ Mint Batch & Generate Downloadable QR Code</span>
-              )}
-            </button>
-          </form>
-        </div>
-
-        {/* Live Blockchain & QR Preview Sidebar */}
-        <div className="preview-sidebar">
-          <div className="preview-sticky-wrap">
-            <div className="preview-header-label">
-              <span>LIVE BATCH & QR PREVIEW</span>
-              <span className="preview-status-pill">Block #{nextBlockIndex}</span>
-            </div>
-
-            {/* Live QR Preview Box */}
-            <div className="batch-qr-preview-card">
-              <div className="preview-qr-wrapper">
-                {previewQrDataUrl ? (
-                  <img
-                    src={previewQrDataUrl}
-                    alt="Preview QR"
-                    className="qr-preview-img"
-                  />
+              {/* Submit Button */}
+              <button
+                id="batch-submit-btn"
+                type="submit"
+                className="btn-primary btn-block btn-lg mt-4"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <span>⏳ Calculating Hash & Minting Batch...</span>
                 ) : (
-                  <div className="qr-skeleton">Generating QR...</div>
+                  <span>⛓️ Calculate Hash & Mint Batch</span>
                 )}
-                <div className="preview-qr-caption font-mono">
-                  {formData.batchId || 'BATCH-ID'}
-                </div>
-              </div>
-
-              <div className="preview-batch-meta">
-                <div className="preview-meta-row">
-                  <span>Producer:</span>
-                  <strong>{currentBeekeeper?.beekeeperName || currentBeekeeper?.name}</strong>
-                </div>
-                <div className="preview-meta-row">
-                  <span>Location:</span>
-                  <span>{formData.location || 'Pending Location'}</span>
-                </div>
-                <div className="preview-meta-row">
-                  <span>Yield:</span>
-                  <span className="text-amber">{formData.quantityKg} kg</span>
-                </div>
-                <div className="preview-meta-row">
-                  <span>Test Result:</span>
-                  <span className="text-emerald">{formData.qualityTestResult.slice(0, 24)}...</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Blockchain Chaining Inspector */}
-            <div className="blockchain-sim-card">
-              <div className="sim-header">
-                <span className="sim-block-num">CHAIN PROPOSAL #{nextBlockIndex}</span>
-                <span className="sim-algo-tag">SHA-256</span>
-              </div>
-
-              <div className="sim-chain-connection">
-                <span className="connection-label">Chained From Block #{nextBlockIndex - 1}:</span>
-                <code className="connection-hash">{previousHash.slice(0, 16)}...{previousHash.slice(-8)}</code>
-                <div className="connection-arrow">⇣ (Immutable Parent Link)</div>
-              </div>
-
-              <div className="sim-hash-result">
-                <div className="hash-result-title">LIVE COMPUTED HASH (createBatchHash):</div>
-                <code className="hash-result-code">{previewHash}</code>
-              </div>
-
-              <div className="chain-length-notice">
-                <span>🔗 Current ledger holds <strong>{batches.length}</strong> authenticated blocks in session.</span>
-              </div>
-            </div>
+              </button>
+            </form>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

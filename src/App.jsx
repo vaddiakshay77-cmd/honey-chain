@@ -1,7 +1,6 @@
 import React from 'react';
 import { HoneyChainProvider, useHoneyChain } from './context/HoneyChainContext';
 import { Navbar } from './components/Navbar';
-import { Footer } from './components/Footer';
 import { Toast } from './components/Toast';
 import { LandingPage } from './pages/LandingPage';
 import { BeekeeperRegistrationPage } from './pages/BeekeeperRegistrationPage';
@@ -35,7 +34,6 @@ function MainRouter() {
       <main className="main-content">
         {renderPage()}
       </main>
-      <Footer />
       <Toast />
     </div>
   );

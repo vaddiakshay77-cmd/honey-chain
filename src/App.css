@@ -4330,11 +4330,485 @@
     font-size: 1.08rem;
   }
 
-  .cert-card {
-    padding: 16px 12px;
-  }
+/* ==========================================================================
+   Updated UI Components: Landing, Register, Batch Entry & One-Card Lookup
+   ========================================================================== */
+
+/* Landing Page Compact Hero */
+.landing-hero-compact {
+  max-width: 820px;
+  margin: 40px auto;
+  text-align: center;
+  padding: 60px 24px;
 }
 
+.hero-problem-statement {
+  margin: 28px auto 36px;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
+.problem-line-1 {
+  font-size: 1.25rem;
+  color: #fde68a;
+  font-weight: 500;
+  line-height: 1.5;
+}
 
+.problem-line-2 {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
 
+/* Beekeeper Registration Single OTP Field */
+.otp-single-field {
+  font-size: 1.5rem !important;
+  letter-spacing: 0.25em;
+  font-weight: 700;
+  padding: 14px 20px !important;
+  border-color: var(--amber-primary) !important;
+  background: rgba(245, 158, 11, 0.06) !important;
+  text-align: center;
+}
+
+.simulated-demo-subtext {
+  font-size: 0.85rem;
+  color: var(--amber-light);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  margin: 12px 0;
+  display: inline-block;
+}
+
+.badge-verified-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--emerald);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  font-weight: 600;
+  font-size: 0.84rem;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+
+.beekeeper-credential-card {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  margin: 20px 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Batch Entry QR & Summary Strip */
+.success-batch-card {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.qr-display-box {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin: 24px 0;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  text-align: left;
+}
+
+.qr-image-wrapper {
+  background: #ffffff;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  flex-shrink: 0;
+}
+
+.batch-qr-image {
+  width: 150px;
+  height: 150px;
+  display: block;
+}
+
+.qr-encoding-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qr-tag-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.qr-encoded-id {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.qr-scan-instruction {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.batch-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.batch-crypto-summary {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 24px;
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.crypto-hash-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* ==========================================================================
+   Main Demo Screen: Clean One Card Layout for Consumer Lookup
+   ========================================================================== */
+.single-card-lookup-wrapper {
+  max-width: 880px;
+  margin: 32px auto 60px;
+  width: 100%;
+}
+
+.lookup-main-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6), 0 0 32px rgba(245, 158, 11, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.lookup-main-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24, #d97706);
+}
+
+.lookup-card-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 24px;
+}
+
+.meta-badge-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--amber-light);
+  text-transform: uppercase;
+}
+
+.lookup-batch-heading {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-top: 4px;
+}
+
+.chain-integrity-result-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.integrity-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.95rem;
+}
+
+.status-verified {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.status-tampered {
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  color: #fb7185;
+}
+
+.status-indicator-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-verified {
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981;
+}
+
+.dot-tampered {
+  background: #f43f5e;
+  box-shadow: 0 0 10px #f43f5e;
+  animation: pulse 1.5s infinite;
+}
+
+.tamper-toggle-btn {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.tamper-toggle-btn:hover {
+  border-color: var(--amber-primary);
+  color: var(--amber-light);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.tamper-toggle-btn.active {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(244, 63, 94, 0.5);
+  color: #fb7185;
+}
+
+.tamper-alert-bar {
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  border-radius: var(--radius-md);
+  padding: 12px 18px;
+  color: #fecdd3;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+}
+
+.lookup-card-body-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.lookup-info-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.lookup-info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.row-value {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.beekeeper-verified-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.beekeeper-name-display {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.badge-verified-seal {
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+}
+
+.beekeeper-location-sub {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.quality-result-badge {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quality-icon {
+  font-size: 1.3rem;
+}
+
+.quality-text {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+/* Right Column: QR Code & Hash inside the single card */
+.lookup-qr-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.lookup-qr-card {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 280px;
+}
+
+.qr-title-tag {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+
+.lookup-qr-image {
+  width: 160px;
+  height: 160px;
+  background: #ffffff;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+}
+
+.qr-batch-code {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.qr-caption-text {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.card-crypto-footer {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  width: 100%;
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hash-line-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hash-label {
+  color: var(--text-muted);
+}
+
+.lookup-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+@media (max-width: 768px) {
+  .lookup-card-body-grid {
+    grid-template-columns: 1fr;
+  }
+  .lookup-qr-card {
+    max-width: 100%;
+  }
+  .lookup-card-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .chain-integrity-result-box {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
