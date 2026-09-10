@@ -1,47 +1,63 @@
 /* ==========================================================================
    HoneyChain Global CSS & Design System Tokens
-   Pure Vanilla CSS - Modern Dark Mode with Warm Amber / Honeycomb Aesthetics
+   Warm Milky White & Vibrant Honey Orange Aesthetic
    ========================================================================== */
 
 :root {
-  /* Color Palette - Warm Honey-Gold & Obsidian Dark Mode */
-  --bg-primary: #0a0907;
-  --bg-surface: #13100b;
-  --bg-surface-elevated: #1d1811;
-  --bg-surface-hover: #262016;
-  --bg-glass: rgba(16, 13, 9, 0.88);
-  --bg-glass-card: rgba(22, 17, 12, 0.72);
-  --bg-glass-input: rgba(14, 11, 8, 0.92);
+  /* Color Palette - Clean Milky White Backgrounds */
+  --bg-primary: #FAF8F5;          /* Pure milky off-white, clean with zero pink */
+  --bg-surface: #FFFFFF;          /* Pure crisp white for cards */
+  --bg-surface-elevated: #F5EFEB; /* Soft creamy warm secondary surface */
+  --bg-surface-hover: #ECE4DC;    /* Subtle creamy hover tint */
+  --bg-glass: rgba(255, 255, 255, 0.96);
+  --bg-glass-card: rgba(255, 255, 255, 0.98);
+  --bg-glass-input: #FFFFFF;
 
-  /* Honey & Amber Accents */
-  --amber-primary: #f59e0b;
-  --amber-light: #fbbf24;
-  --amber-warm: #fde68a;
-  --amber-deep: #d97706;
-  --amber-dark: #92400e;
-  --amber-glow: rgba(245, 158, 11, 0.22);
-  --amber-glow-strong: rgba(245, 158, 11, 0.42);
+  /* Primary Accent - Warm Honey Orange */
+  --orange-primary: #F5821F;
+  --orange-hover: #DE6F12;
+  --orange-light: #FF9A42;
+  --orange-dark: #C25B07;
+  --orange-glow: rgba(245, 130, 31, 0.16);
+  --orange-glow-strong: rgba(245, 130, 31, 0.30);
 
-  /* Status Colors */
-  --emerald: #10b981;
-  --emerald-glow: rgba(16, 185, 129, 0.2);
-  --cyan: #06b6d4;
-  --rose: #f43f5e;
+  /* Secondary Accent - Warm Cream & Soft Amber (Zero Pink) */
+  --peach-surface: #FDF5ED;       /* Creamy warm honey highlight */
+  --peach-light: #F7EBDF;
+  --peach-border: #ECD5C0;
 
-  /* Text Hierarchy (Warm, high contrast, readable) */
-  --text-primary: #fcf8f2;
-  --text-secondary: #d5cabd;
-  --text-muted: #8e8171;
-  --text-dim: #5c5245;
+  /* Backward Compatibility Aliases for Amber variables */
+  --amber-primary: #F5821F;
+  --amber-light: #F5821F;
+  --amber-warm: #E06708;
+  --amber-deep: #C25B07;
+  --amber-dark: #9A4302;
+  --amber-glow: rgba(245, 130, 31, 0.16);
+  --amber-glow-strong: rgba(245, 130, 31, 0.30);
+
+  /* Status Colors - High-contrast for light theme */
+  --emerald: #059669;             /* Crisp rich green */
+  --emerald-glow: rgba(5, 150, 105, 0.14);
+  --cyan: #0284C7;                /* Sky blue */
+  --rose: #E11D48;                /* Crimson rose */
+
+  /* Text Hierarchy (Dark Charcoal / Brown, high readability on milky white) */
+  --text-primary: #2D2319;        /* Rich dark espresso charcoal */
+  --text-secondary: #5C4E42;      /* Medium warm charcoal */
+  --text-muted: #8C7C6E;          /* Soft readable caption brown */
+  --text-dim: #B2A599;            /* Subtle borders & hints */
 
   /* Borders & Shadows */
-  --border-subtle: rgba(245, 158, 11, 0.16);
-  --border-medium: rgba(245, 158, 11, 0.3);
-  --border-highlight: rgba(251, 191, 36, 0.55);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.45);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.55);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.65);
-  --shadow-honey: 0 8px 28px rgba(245, 158, 11, 0.15);
+  --border-subtle: rgba(180, 150, 120, 0.20);
+  --border-medium: rgba(245, 130, 31, 0.35);
+  --border-highlight: #F5821F;
+
+  /* Soft, modern diffuse drop shadows */
+  --shadow-sm: 0 2px 8px rgba(60, 45, 30, 0.05);
+  --shadow-md: 0 6px 20px rgba(60, 45, 30, 0.07);
+  --shadow-lg: 0 14px 36px rgba(60, 45, 30, 0.09);
+  --shadow-honey: 0 8px 24px rgba(245, 130, 31, 0.18);
+  --shadow-orange: 0 6px 20px rgba(245, 130, 31, 0.22);
 
   /* Typography */
   --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -49,7 +65,7 @@
   --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, Menlo, monospace;
 
   /* Spacing & Radii */
-  --radius-sm: 6px;
+  --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;
   --radius-xl: 24px;
@@ -79,17 +95,13 @@ body {
   font-family: var(--font-body);
   line-height: 1.6;
   overflow-x: hidden;
-  background-image:
-    radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.08) 0%, transparent 60%),
-    radial-gradient(circle at 100% 40%, rgba(217, 119, 6, 0.05) 0%, transparent 40%),
-    radial-gradient(circle at 0% 80%, rgba(245, 158, 11, 0.04) 0%, transparent 40%);
-  background-attachment: fixed;
+  background-image: none;
 }
 
-/* Headings */
+/* Headings in bold weight to pop on milky white */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text-primary);
   line-height: 1.25;
   letter-spacing: -0.02em;
@@ -100,13 +112,13 @@ p {
 }
 
 a {
-  color: var(--amber-light);
+  color: var(--orange-primary);
   text-decoration: none;
   transition: color var(--transition-fast);
 }
 
 a:hover {
-  color: var(--amber-primary);
+  color: var(--orange-hover);
 }
 
 button {
@@ -124,15 +136,16 @@ input, select, textarea {
   font-size: inherit;
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
-  background: var(--bg-glass-input);
+  background: var(--bg-surface);
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
 }
 
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: var(--amber-primary);
-  box-shadow: 0 0 0 3px var(--amber-glow);
+  border-color: var(--orange-primary);
+  box-shadow: 0 0 0 3px var(--orange-glow);
+  background: #FFFFFF;
 }
 
 /* Utility Typography */
@@ -149,7 +162,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 .text-amber {
-  color: var(--amber-light) !important;
+  color: var(--orange-primary) !important;
 }
 
 .text-cyan {
@@ -164,8 +177,9 @@ input:focus, select:focus, textarea:focus {
   font-style: italic;
 }
 
+/* Gradient Honey/Orange Text */
 .gradient-honey-text {
-  background: linear-gradient(135deg, #fef08a 0%, #fbbf24 45%, #d97706 100%);
+  background: linear-gradient(135deg, #F5821F 0%, #D96A0B 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   display: inline-block;
@@ -180,10 +194,10 @@ input:focus, select:focus, textarea:focus {
   background: var(--bg-primary);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-surface-elevated);
+  background: #E5DACF;
   border-radius: 4px;
   border: 1px solid var(--border-subtle);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--amber-dark);
+  background: var(--orange-primary);
 }
