@@ -1,0 +1,189 @@
+/* ==========================================================================
+   HoneyChain Global CSS & Design System Tokens
+   Pure Vanilla CSS - Modern Dark Mode with Warm Amber / Honeycomb Aesthetics
+   ========================================================================== */
+
+:root {
+  /* Color Palette - Warm Honey-Gold & Obsidian Dark Mode */
+  --bg-primary: #0a0907;
+  --bg-surface: #13100b;
+  --bg-surface-elevated: #1d1811;
+  --bg-surface-hover: #262016;
+  --bg-glass: rgba(16, 13, 9, 0.88);
+  --bg-glass-card: rgba(22, 17, 12, 0.72);
+  --bg-glass-input: rgba(14, 11, 8, 0.92);
+
+  /* Honey & Amber Accents */
+  --amber-primary: #f59e0b;
+  --amber-light: #fbbf24;
+  --amber-warm: #fde68a;
+  --amber-deep: #d97706;
+  --amber-dark: #92400e;
+  --amber-glow: rgba(245, 158, 11, 0.22);
+  --amber-glow-strong: rgba(245, 158, 11, 0.42);
+
+  /* Status Colors */
+  --emerald: #10b981;
+  --emerald-glow: rgba(16, 185, 129, 0.2);
+  --cyan: #06b6d4;
+  --rose: #f43f5e;
+
+  /* Text Hierarchy (Warm, high contrast, readable) */
+  --text-primary: #fcf8f2;
+  --text-secondary: #d5cabd;
+  --text-muted: #8e8171;
+  --text-dim: #5c5245;
+
+  /* Borders & Shadows */
+  --border-subtle: rgba(245, 158, 11, 0.16);
+  --border-medium: rgba(245, 158, 11, 0.3);
+  --border-highlight: rgba(251, 191, 36, 0.55);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.65);
+  --shadow-honey: 0 8px 28px rgba(245, 158, 11, 0.15);
+
+  /* Typography */
+  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, Menlo, monospace;
+
+  /* Spacing & Radii */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+  --transition-fast: 0.18s ease;
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Global Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.08) 0%, transparent 60%),
+    radial-gradient(circle at 100% 40%, rgba(217, 119, 6, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 0% 80%, rgba(245, 158, 11, 0.04) 0%, transparent 40%);
+  background-attachment: fixed;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+p {
+  color: var(--text-secondary);
+}
+
+a {
+  color: var(--amber-light);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--amber-primary);
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: inherit;
+  background: transparent;
+  transition: all var(--transition-fast);
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-glass-input);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--amber-primary);
+  box-shadow: 0 0 0 3px var(--amber-glow);
+}
+
+/* Utility Typography */
+.font-mono {
+  font-family: var(--font-mono) !important;
+}
+
+.text-uppercase {
+  text-transform: uppercase;
+}
+
+.text-emerald {
+  color: var(--emerald) !important;
+}
+
+.text-amber {
+  color: var(--amber-light) !important;
+}
+
+.text-cyan {
+  color: var(--cyan) !important;
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.italic {
+  font-style: italic;
+}
+
+.gradient-honey-text {
+  background: linear-gradient(135deg, #fef08a 0%, #fbbf24 45%, #d97706 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-surface-elevated);
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--amber-dark);
+}
